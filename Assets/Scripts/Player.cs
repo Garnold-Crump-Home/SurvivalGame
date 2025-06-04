@@ -1,98 +1,96 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+[RequireComponent(typeof(CharacterController))]
 public class Player : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public float speed = 6f;
-    public float jumpHeight = 1.5f;
-    public float gravity = -9.81f;
+    [SerializeField] private float walkSpeed = 6f;
+    [SerializeField] private float jumpHeight = 1.5f;
+    [SerializeField] private float gravity = -9.81f;
 
     [Header("Swimming Settings")]
-    public float swimSpeed = 3f;
-    public float swimUpSpeed = 2f;
-    private bool isInWater = false;
+    [SerializeField] private float swimSpeed = 3f;
+    [SerializeField] private float swimUpSpeed = 2f;
+    [SerializeField] private float waterBuoyancy = -0.5f;
 
     [Header("Ground Check")]
-    public Transform groundCheck;
-    public float groundDistance = 0.4f;
-    public LayerMask groundMask;
-    public bool isGrounded;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private float groundCheckRadius = 0.4f;
+    [SerializeField] private LayerMask groundMask;
 
     [Header("Stats")]
     public float wood;
-    public float health = 20;
-    public float hunger = 10;
+    public float health = 20f;
+    public float hunger = 10f;
     public Text healthText;
 
     private CharacterController controller;
     private Vector3 velocity;
+    private bool isGrounded;
+    private bool isInWater;
 
-    void Start()
+    private void Start()
     {
         controller = GetComponent<CharacterController>();
-      
     }
 
-    void Update()
+    private void Update()
     {
-        // Update health UI
-        float roundedHealth = Mathf.Round(health);
-        healthText.text = roundedHealth.ToString();
-
-        // Ground check
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
-    
-        if (isGrounded && velocity.y < 0)
-        {
-            // Strongly stick player to ground, avoid floating due to small velocity
-            velocity.y = -2f;
-        }
-
-        // Movement input
-        float x = Input.GetAxis("Horizontal");
-        float z = Input.GetAxis("Vertical");
-
-        Vector3 move = transform.right * x + transform.forward * z;
+        UpdateUI();
+        CheckGroundStatus();
 
         if (isInWater)
         {
-            move.y = 0;
-
-            if (Input.GetKey(KeyCode.Space))
-            {
-                move.y = swimUpSpeed;
-            }
-            else
-            {
-                // Apply slight downward force to simulate sinking/buoyancy
-                move.y = -0.5f;  // tweak this value as needed
-            }
-
-            controller.Move(move * swimSpeed * Time.deltaTime);
-
-            // Don't reset velocity to zero, or use velocity only for jumping/falling out of water
+            Swim();
         }
         else
         {
-            // Move horizontally
-            controller.Move(move * speed * Time.deltaTime);
-
-            // Jumping
-            if (Input.GetButtonDown("Jump") && isGrounded)
-            {
-                velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            }
-
-            // Apply gravity every frame (will pull player down if not grounded)
-            velocity.y += gravity * Time.deltaTime;
-
-            // Apply vertical movement (jump/fall)
-            controller.Move(velocity * Time.deltaTime);
+            MoveAndJump();
         }
+    }
+
+    private void UpdateUI()
+    {
+        healthText.text = Mathf.Round(health).ToString();
+    }
+
+    private void CheckGroundStatus()
+    {
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundCheckRadius, groundMask);
+
+        if (isGrounded && velocity.y < 0)
+        {
+            velocity.y = -2f; // Stick to ground
+        }
+    }
+
+    private void MoveAndJump()
+    {
+        Vector3 input = GetMovementInput();
+        controller.Move(input * walkSpeed * Time.deltaTime);
+
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        }
+
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
+    }
+
+    private void Swim()
+    {
+        Vector3 move = GetMovementInput();
+        move.y = Input.GetKey(KeyCode.Space) ? swimUpSpeed : waterBuoyancy;
+        controller.Move(move * swimSpeed * Time.deltaTime);
+    }
+
+    private Vector3 GetMovementInput()
+    {
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
+        return transform.right * x + transform.forward * z;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -100,14 +98,14 @@ public class Player : MonoBehaviour
         if (other.CompareTag("Water"))
         {
             isInWater = true;
-            velocity = Vector3.zero; // reset vertical velocity
+            velocity = Vector3.zero;
 
-            // Snap player y position to water surface
+            // Optional: Snap to water surface
             Vector3 pos = transform.position;
-            pos.y = other.bounds.min.y + 0.1f;  // just a bit above water bottom
+            pos.y = other.bounds.min.y + 0.1f;
             transform.position = pos;
         }
-        }
+    }
 
     private void OnTriggerExit(Collider other)
     {
