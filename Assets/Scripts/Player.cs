@@ -26,10 +26,10 @@ public class Player : MonoBehaviour
     public Text healthText;
 
     private CharacterController controller;
-    private Vector3 velocity;
-    private bool isGrounded;
-    private bool isInWater;
-
+    public Vector3 velocity;
+    public bool isGrounded;
+    public bool isInWater;
+    public GravityWork gravityWork;
     private void Start()
     {
         controller = GetComponent<CharacterController>();
@@ -37,6 +37,12 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
+        if (gravityWork.work == true)
+        {
+            Vector3 currentP = transform.position;
+            Vector3 newPosition = new Vector3(currentP.x, 1, currentP.z);
+            transform.position = newPosition;
+        }
         UpdateUI();
         CheckGroundStatus();
 
